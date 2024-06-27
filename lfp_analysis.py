@@ -1728,7 +1728,7 @@ def calculate_filter_bands(lfp_spectral_df, theta_band,
     power_columns = [col for col in lfp_spectral_df.columns if
                      "power" in col and "calculation" not in col and "time" not in col]
     for col in power_columns:
-        print(col)
+        #print(col)
         brain_region_name = col.split("power")[0].strip("_")
         theta_power_col = f"{brain_region_name}_power_theta"
         gamma_power_col = f"{brain_region_name}_power_gamma"
@@ -2266,7 +2266,7 @@ def make_labels_df(labels_df, filter_bands_df):
 
     for col in power_columns:
         brain_region = col.replace("all_windows", "_").strip("_")
-        print(brain_region)
+        #print(brain_region)
 
         updated_item_col = "baseline_{}".format(brain_region)
         updated_timestamp_col = "baseline_power_timestamps".format(
@@ -2288,7 +2288,7 @@ def make_labels_df(labels_df, filter_bands_df):
 
     for col in power_columns:
         brain_region = col.replace("all_windows", "_").strip("_")
-        print(brain_region)
+        #print(brain_region)
 
         updated_item_col = "trial_{}".format(brain_region)
         updated_timestamp_col = "trial_power_timestamps".format(brain_region)
@@ -2311,7 +2311,7 @@ def make_labels_df(labels_df, filter_bands_df):
                          "coherence" in col and "timestamps" not in col and "calculation" not in col]
     for col in coherence_columns:
         brain_region = col.replace("all_windows", "_").strip("_")
-        print(brain_region)
+        #print(brain_region)
 
         updated_item_col = "baseline_{}".format(brain_region)
         updated_timestamp_col = "baseline_coherence_timestamps".format(
@@ -2332,7 +2332,7 @@ def make_labels_df(labels_df, filter_bands_df):
         axis=1)
     for col in coherence_columns:
         brain_region = col.replace("all_windows", "_").strip("_")
-        print(brain_region)
+        #print(brain_region)
 
         updated_item_col = "trial_{}".format(brain_region)
         updated_timestamp_col = "trial_coherence_timestamps".format(
@@ -2357,7 +2357,7 @@ def make_labels_df(labels_df, filter_bands_df):
 
     for col in granger_columns:
         brain_region = col.replace("all_windows", "_").strip("_")
-        print(brain_region)
+        #print(brain_region)
 
         updated_item_col = "baseline_{}".format(brain_region)
         updated_timestamp_col = "baseline_granger_timestamps".format(
@@ -2378,7 +2378,7 @@ def make_labels_df(labels_df, filter_bands_df):
         axis=1)
     for col in granger_columns:
         brain_region = col.replace("all_windows", "_").strip("_")
-        print(brain_region)
+        #print(brain_region)
 
         updated_item_col = "trial_{}".format(brain_region)
         updated_timestamp_col = "trial_granger_timestamps".format(brain_region)
@@ -2402,7 +2402,7 @@ def make_labels_df(labels_df, filter_bands_df):
 
     for col in sorted(sleap_columns):
         updated_item_col = "baseline_{}".format(col)
-        print(updated_item_col)
+        #print(updated_item_col)
         updated_timestamp_col = "baseline_video_timestamps".format(col)
         if "agent" in col:
             trial_and_spectral[updated_item_col] = trial_and_spectral.apply(
@@ -2431,7 +2431,7 @@ def make_labels_df(labels_df, filter_bands_df):
 
     for col in sorted(sleap_columns):
         updated_item_col = "trial_{}".format(col)
-        print(updated_item_col)
+        #print(updated_item_col)
         updated_timestamp_col = "trial_video_timestamps".format(col)
         if "agent" in col:
             trial_and_spectral[updated_item_col] = trial_and_spectral.apply(
@@ -2538,7 +2538,7 @@ def encode_labels(filter_bands_df, labels_df, encoding_dict):
 
     for col in sorted(sleap_columns):
         updated_item_col = "baseline_{}".format(col)
-        print(updated_item_col)
+        #print(updated_item_col)
         updated_timestamp_col = "baseline_video_timestamps".format(col)
         if "agent" in col:
             trial_and_spectral_df[updated_item_col] = trial_and_spectral_df.apply(
