@@ -3,28 +3,24 @@
 - `channel_mapping.xlsx` - (Default) Excel file with the channel mapping for the LFP data.
 
 
-- `events.xlsx` - Contains the following columns:
-  - `file_path` - Path to the *.h5 file.
-  - `start_frame` - Start time of the event.
-  - `stop_frame` - Stop time of the event.
-  - `tracked_subject` - Name of the subject being tracked.
-  - `in_video_subject` - Name of the subject in the video.
-  - `box_number` - Box number.
+- `video.xlsx` - Contains the following columns:
+  - `file_path` - File name to each sleap file (*.h5) in the experiment.
+  - `start_frame` - (Experimenter created) start frame from when mouse enters recording or transferred to box.
+  - `stop_frame` - (Experimenter created) start frame from when mouse exits recording or transferred to box.
+  - `tracked_subject` - Animal being tracked during start & stop frame.
+  - `in_video_subject` - Any animal that is in the recording (regardless of start & stop frames).
+  - `box_number` - MedPC box number.
   - `notes` - Event notes.
 
-
+  
 - `labels.xlsx` - Contains the following columns:
-  - `tracked_subject` - (List) Name of the subject being tracked.
-  - `box_number` - (optional) Box number.
+  - `video_name` - Name of the video.
   - `sleap_name` - Name of sleap *.h5 file.
-  - `current_subject` - Name of the subject in the video.
-  - `tone_start_frame` - Start time of the tone.
-  - `tone_stop_frame` - Stop time of the tone.
-  - `condition` - (Optional, Winner) Condition of the subject (id).
-  - `competition_class` - Competition class of the subject (see encoding dict)
-  - `notes` - Event notes.
   - `session_dir` - Directory of the session (containing *.rec)
-  - `all_subjects` - (List) All subjects in the video.
-  - `tone_start_timestamp` - Start time of the tone (timestamp).
-  - `tone_stop_timestamp` - Stop time of the tone (timestamp).
-  - `trial_label` - Label of the trial (win, loss, rewarded, omission).
+  - `tracked_subject` - (List) Name of the subject being tracked.
+  - `current_subject` - Name of the subject in the video.
+  - `competition_closeness` - Competition closeness of the trial (see encoding dict)
+  - `notes` - (Optional) Trial notes.
+
+
+- 

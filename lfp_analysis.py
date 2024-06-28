@@ -2339,7 +2339,10 @@ def encode_labels(filter_bands_df, labels_df, encoding_dict):
         lambda x: x[0])
     group_labels_df["sleap_name"] = group_labels_df["sleap_name"].apply(
         lambda x: x[0])
-    group_labels_df["trial_notes"] = group_labels_df["notes"]
+
+    if "notes" in group_labels_df.columns:
+        # Renaming notes to trial_notes
+        group_labels_df["trial_notes"] = group_labels_df["notes"]
 
     trial_and_spectral_df = pd.merge(
         group_labels_df, filter_bands_df, on=[
