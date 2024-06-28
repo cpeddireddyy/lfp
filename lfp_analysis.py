@@ -37,6 +37,16 @@ class LfpExperiment:
 
 class LfpRecordingObject:
     def make_object(self):
+        self.recording_names_dict = extract_lfp_traces(
+            ALL_SESSION_DIR=self.path,
+            ECU_STREAM_ID="ECU",
+            TRODES_STREAM_ID="trodes",
+            RECORDING_EXTENTION="*.rec",
+            LFP_FREQ_MIN=0.5,
+            LFP_FREQ_MAX=300,
+            ELECTRIC_NOISE_FREQ=60,
+            LFP_SAMPLING_RATE=1000,
+            EPHYS_SAMPLING_RATE=20000)
         # call extract_all_trodes
         session_to_trodes_temp, paths = extract_all_trodes(input_dir=self.path)
         # call add_video_timestamps
@@ -61,6 +71,22 @@ class LfpRecordingObject:
         print("LFP Object has been created for " +
               self.subject + " at " + self.path)
 
+    def make_spike_df(self):
+        self.spike_df = combine_lfp_traces_and_metadata(
+            SPIKEGADGETS_EXTRACTED_DF=self.final_df,
+            recording_name_to_all_ch_lfp=self.recording_names_dict,
+            CHANNEL_MAPPING_DF=self.channel_map,
+            CURRENT_SUBJECT_COL="current_subject",
+            SUBJECT_COL="Subject",
+            ALL_CH_LFP_COL="all_ch_lfp",
+            LFP_RESAMPLE_RATIO=20,
+            EPHYS_SAMPLING_RATE=20000,
+            LFP_SAMPLING_RATE=1000)
+        print("Spike dataframe has been created at " +
+              self.output_path + "/spike_df.pkl")
+        self.spike_df.to_pickle(self.output_path + "/spike_df.pkl")
+
+
     def make_power_df(self):
         LFP_TRACES_DF = preprocess_lfp_data(
             lfp_traces_df=self.spike_df,
@@ -79,11 +105,17 @@ class LfpRecordingObject:
             self.TIME_WINDOW_STEP)
         # assign variables
         self.power_df = power_df
+        print("Power dataframe has been created at " +
+              self.output_path + "/power_df.pkl")
+        self.power_df.to_pickle(self.output_path + "/power_df.pkl")
 
     def make_phase_df(self):
         # call get_phase
         phase_df = calculate_phase(self.spike_df, fs=1000)
         # assign variables
+        print("Phase dataframe has been created at " +
+              self.output_path + "/phase_df.pkl")
+        self.phase_df.to_pickle(self.output_path + "/phase_df.pkl")
         self.phase_df = phase_df
 
     def make_coherence_df(self):
@@ -93,6 +125,9 @@ class LfpRecordingObject:
                                            self.TIME_HALFBANDWIDTH_PRODUCT,
                                            self.TIME_WINDOW_DURATION,
                                            self.TIME_WINDOW_STEP)
+        print("Coherence dataframe has been created at " +
+              self.output_path + "/coherence_df.pkl")
+        self.coherence_df.to_pickle(self.output_path + "/coherence_df.pkl")
         # assign variables
         self.coherence_df = coherence_df
 
@@ -105,6 +140,9 @@ class LfpRecordingObject:
             time_halfbandwidth_product=self.TIME_HALFBANDWIDTH_PRODUCT,
             time_window_duration=self.TIME_WINDOW_DURATION,
             time_window_step=self.TIME_WINDOW_STEP)
+        print("Granger dataframe has been created at " +
+              self.output_path + "/granger_df.pkl")
+        self.granger_df.to_pickle(self.output_path + "/granger_df.pkl")
         # assign variables
         self.granger_df = granger_df
 
@@ -117,6 +155,10 @@ class LfpRecordingObject:
             gamma_band=self.BAND_TO_FREQ["gamma"],
             output_dir=os.getcwd(),
             output_prefix="test")
+        print("Filter bands dataframe has been created at " +
+              self.output_path + "/filter_bands_df.pkl")
+        self.filter_bands_df.to_pickle(
+            self.output_path + "/filter_bands_df.pkl")
         # assign variables
         self.filter_bands_df = filter_bands_df
 
@@ -149,13 +191,20 @@ class LfpRecordingObject:
                                                      lfp_spectral_df=self.filter_bands_df,
                                                      thorax_index=1,
                                                      output_prefix=self.experiment_name)
+        print(
+            "Sleap and start/stop dataframes has been created at " +
+            self.output_path +
+            "/sleap_df.pkl and " +
+            self.output_path +
+            "/start_stop_df.pkl")
+        self.sleap_df.to_pickle(self.output_path + "/sleap_df.pkl")
+        self.start_stop_df.to_pickle(self.output_path + "/start_stop_df.pkl")
         # assign variables
         self.sleap_df = sleap_df
         self.start_stop_df = start_stop_df
 
-    def analyze_sleap(self):
-        # todo: thorax index hardcoded
-        thorax_index = 1
+    def analyze_sleap(self, thorax_index):
+        print("Analysis of sleap data started.")
         analyze_sleap_file(
             start_stop_frame_df=self.start_stop_df,
             plot_output_dir=self.output_path +
@@ -164,6 +213,7 @@ class LfpRecordingObject:
             thorax_index=thorax_index,
             thorax_plots=True,
             save_plots=True)
+        print("Analysis of sleap data completed.")
 
     def make_output_dir(self):
         print("IN MAKE OUTPUT DIR")
@@ -172,34 +222,37 @@ class LfpRecordingObject:
         os.makedirs(self.output_path, exist_ok=True)
         print("Output path is " + self.output_path)
 
-    def add_labels(self):
+    def add_labels(self, labels_path):
+        self.labels_df = pd.read_excel(labels_path)
         self.labels_and_spectral = make_labels_df(
             labels_df=self.labels_df, filter_bands_df=self.filter_bands_df)
+        self.labels_and_spectral.to_pickle(
+            self.output_path + "/labels_and_spectral.pkl")
 
     def add_label_encoding(self):
-        self.labels_and_spectral = encode_labels(
+        self.label_encoding = encode_labels(
             filter_bands_df=self.filter_bands_df,
             labels_df=self.labels_df,
             encoding_dict=self.encoding_dict)
+        self.label_encoding.to_pickle(
+            self.output_path + "/label_encoding.pkl")
 
     def __init__(self,
                  path,
                  channel_map_path,
                  sleap_path,
                  events_path,
-                 labels_path,
                  experiment_name,
                  subject,
                  output_path,
                  encoding_dict,
-                 ecu=False,
                  sampling_rate=20000,
                  frame_rate=22):
+        self.labels_df = None
         self.path = path
         self.channel_map_path = channel_map_path
         self.sleap_path = sleap_path
         self.events_path = events_path
-        self.labels_df = pd.read_excel(labels_path)
         self.experiment_name = experiment_name
         self.events = {}
         self.channel_map = {}
@@ -246,88 +299,18 @@ class LfpRecordingObject:
 
         # labels notebook
         self.labels_and_spectral = None
-
-        self.make_output_dir()
-        self.make_object()
+        self.label_encoding = None
 
         # get channel map and lfp
         # ALL_SESSION_DIR, ECU_STREAM_ID, TRODES_STREAM_ID,
         # RECORDING_EXTENTION, LFP_FREQ_MIN, LFP_FREQ_MAX, ELECTRIC_NOISE_FREQ,
         # LFP_SAMPLING_RATE, EPHYS_SAMPLING_RATE):
-        self.recording_names_dict = extract_lfp_traces(
-            ALL_SESSION_DIR=self.path,
-            ECU_STREAM_ID="ECU",
-            TRODES_STREAM_ID="trodes",
-            RECORDING_EXTENTION="*.rec",
-            LFP_FREQ_MIN=0.5,
-            LFP_FREQ_MAX=300,
-            ELECTRIC_NOISE_FREQ=60,
-            LFP_SAMPLING_RATE=1000,
-            EPHYS_SAMPLING_RATE=20000)
+        self.recording_names_dict = None
 
         self.channel_map = load_channel_map(
             channel_map_path=self.channel_map_path)
 
-        self.spike_df = combine_lfp_traces_and_metadata(
-            SPIKEGADGETS_EXTRACTED_DF=self.final_df,
-            recording_name_to_all_ch_lfp=self.recording_names_dict,
-            CHANNEL_MAPPING_DF=self.channel_map,
-            CURRENT_SUBJECT_COL="current_subject",
-            SUBJECT_COL="Subject",
-            ALL_CH_LFP_COL="all_ch_lfp",
-            LFP_RESAMPLE_RATIO=20,
-            EPHYS_SAMPLING_RATE=20000,
-            LFP_SAMPLING_RATE=1000)
-
-        # temporarily pickle the spike_df for debugging
-        self.spike_df.to_pickle(self.output_path + "/spike_df.pkl")
-
-        self.make_power_df()
-        print("Power dataframe has been created at " +
-              self.output_path + "/power_df.pkl")
-        self.power_df.to_pickle(self.output_path + "/power_df.pkl")
-
-        self.make_phase_df()
-        print("Phase dataframe has been created at " +
-              self.output_path + "/phase_df.pkl")
-        self.phase_df.to_pickle(self.output_path + "/phase_df.pkl")
-
-        self.make_coherence_df()
-        print("Coherence dataframe has been created at " +
-              self.output_path + "/coherence_df.pkl")
-        self.coherence_df.to_pickle(self.output_path + "/coherence_df.pkl")
-
-        self.make_granger_df()
-        print("Granger dataframe has been created at " +
-              self.output_path + "/granger_df.pkl")
-        self.granger_df.to_pickle(self.output_path + "/granger_df.pkl")
-
-        self.make_filter_bands_df()
-        print("Filter bands dataframe has been created at " +
-              self.output_path + "/filter_bands_df.pkl")
-        self.filter_bands_df.to_pickle(
-            self.output_path + "/filter_bands_df.pkl")
-
-        self.make_sleap_df()
-        print(
-            "Sleap and start/stop dataframes has been created at " +
-            self.output_path +
-            "/sleap_df.pkl and " +
-            self.output_path +
-            "/start_stop_df.pkl")
-        self.sleap_df.to_pickle(self.output_path + "/sleap_df.pkl")
-        self.start_stop_df.to_pickle(self.output_path + "/start_stop_df.pkl")
-
-        self.analyze_sleap()
-        print("Analysis of sleap data has been completed")
-
-        # label notebook functions
-        self.add_labels()
-        self.labels_and_spectral.to_pickle(
-            self.output_path + "/labels_and_spectral.pkl")
-
-        # TODO: export notebook functions
-        # self.add_label_encoding()
+        self.spike_df = None
 
 
 def helper_filter_array_by_values(arr, start_value=0, stop_value=1000000):
