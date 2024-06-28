@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import spikeinterface.extractors as se
 import spikeinterface.preprocessing as sp
 
+# Constants
+SPIKE_GADGETS_MULTIPLIER = 0.6745
 
 class LfpExperiment:
     """
@@ -36,17 +38,13 @@ class LfpExperiment:
 
 
 class LfpRecordingObject:
+    #TODO: Changed recording extention to merged.rec here, debug here if needed
     def make_object(self):
         self.recording_names_dict = extract_lfp_traces(
-            ALL_SESSION_DIR=self.path,
+            all_session_dir=self.path,
             ECU_STREAM_ID="ECU",
             TRODES_STREAM_ID="trodes",
-            RECORDING_EXTENTION="*.rec",
-            LFP_FREQ_MIN=0.5,
-            LFP_FREQ_MAX=300,
-            ELECTRIC_NOISE_FREQ=60,
-            LFP_SAMPLING_RATE=1000,
-            EPHYS_SAMPLING_RATE=20000)
+            recording_extention="*merged.rec")
         # call extract_all_trodes
         session_to_trodes_temp, paths = extract_all_trodes(input_dir=self.path)
         # call add_video_timestamps
@@ -73,13 +71,9 @@ class LfpRecordingObject:
 
     def make_spike_df(self):
         self.spike_df = combine_lfp_traces_and_metadata(
-            SPIKEGADGETS_EXTRACTED_DF=self.final_df,
+            spikegadgets_extracted_df=self.final_df,
             recording_name_to_all_ch_lfp=self.recording_names_dict,
-            CHANNEL_MAPPING_DF=self.channel_map,
-            CURRENT_SUBJECT_COL="current_subject",
-            SUBJECT_COL="Subject",
-            ALL_CH_LFP_COL="all_ch_lfp",
-            LFP_RESAMPLE_RATIO=20,
+            channel_map_df=self.channel_map,
             EPHYS_SAMPLING_RATE=20000,
             LFP_SAMPLING_RATE=1000)
         print("Spike dataframe has been created at " +
@@ -88,21 +82,20 @@ class LfpRecordingObject:
 
 
     def make_power_df(self):
-        LFP_TRACES_DF = preprocess_lfp_data(
+        self.lfp_trace_df = preprocess_lfp_data(
             lfp_traces_df=self.spike_df,
-            voltage_scaling_value=self.VOLTAGE_SCALING_VALUE,
+            voltage_scaling_value=self.voltage_scaling_value,
             zscore_threshold=self.zscore_threshold,
-            resample_rate=self.RESAMPLE_RATE)
-        self.LFP_TRACES_DF = LFP_TRACES_DF
+            resample_rate=self.resample_rate)
         print("LFP TRACES DF")
-        print(LFP_TRACES_DF.head())
+        print(self.lfp_trace_df.head())
         # call get_power
         power_df = calculate_power(
             self.spike_df,
-            self.RESAMPLE_RATE,
-            self.TIME_HALFBANDWIDTH_PRODUCT,
-            self.TIME_WINDOW_DURATION,
-            self.TIME_WINDOW_STEP)
+            self.resample_rate,
+            self.time_half_bandwidth_prod,
+            self.time_window_duration,
+            self.time_window_step)
         # assign variables
         self.power_df = power_df
         print("Power dataframe has been created at " +
@@ -121,10 +114,10 @@ class LfpRecordingObject:
     def make_coherence_df(self):
         # call get_coherence
         # lfp_traces_df, resample_rate, time_halfbandwidth_product, time_window_duration, time_window_step
-        coherence_df = calculate_coherence(self.spike_df, self.RESAMPLE_RATE,
-                                           self.TIME_HALFBANDWIDTH_PRODUCT,
-                                           self.TIME_WINDOW_DURATION,
-                                           self.TIME_WINDOW_STEP)
+        coherence_df = calculate_coherence(self.spike_df, self.resample_rate,
+                                           self.time_half_bandwidth_prod,
+                                           self.time_window_duration,
+                                           self.time_window_step)
         print("Coherence dataframe has been created at " +
               self.output_path + "/coherence_df.pkl")
         self.coherence_df.to_pickle(self.output_path + "/coherence_df.pkl")
@@ -136,10 +129,10 @@ class LfpRecordingObject:
         # lfp_traces_df, resample_rate, time_halfbandwidth_product, time_window_duration, time_window_step
         granger_df = calculate_granger_causality(
             lfp_traces_df=self.spike_df,
-            resample_rate=self.RESAMPLE_RATE,
-            time_halfbandwidth_product=self.TIME_HALFBANDWIDTH_PRODUCT,
-            time_window_duration=self.TIME_WINDOW_DURATION,
-            time_window_step=self.TIME_WINDOW_STEP)
+            resample_rate=self.resample_rate,
+            time_halfbandwidth_product=self.time_half_bandwidth_prod,
+            time_window_duration=self.time_window_duration,
+            time_window_step=self.time_window_step)
         print("Granger dataframe has been created at " +
               self.output_path + "/granger_df.pkl")
         self.granger_df.to_pickle(self.output_path + "/granger_df.pkl")
@@ -164,21 +157,7 @@ class LfpRecordingObject:
 
     def make_sleap_df(self):
         # call get_start_stop
-        """
-        sleap_dir,
-                       output_dir,
-                       med_pc_width,
-                       med_pc_height,
-                       frame_rate,
-                       window_size,
-                       distance_threshold,
-                       start_stop_frame_df,
-                       lfp_spectral_df,
-                       thorax_index,
-                       output_prefix
-        """
         # todo: init with medpc width and height; window size; distance
-        # threshold; thorax index
         sleap_df, start_stop_df = process_sleap_data(sleap_dir=self.sleap_path,
                                                      output_dir=self.output_path,
                                                      med_pc_width=1,
@@ -237,6 +216,7 @@ class LfpRecordingObject:
         self.label_encoding.to_pickle(
             self.output_path + "/label_encoding.pkl")
 
+    #TODO updated ecu params for meta data
     def __init__(self,
                  path,
                  channel_map_path,
@@ -246,8 +226,15 @@ class LfpRecordingObject:
                  subject,
                  output_path,
                  encoding_dict,
+                 time_window_step,
+                 time_window_duration,
+                 time_half_bandwidth_prod,
+                 zscore_threshold=4,
+                 voltage_scaling_value=0.195,
+                 resample_rate=1000,
                  sampling_rate=20000,
-                 frame_rate=22):
+                 frame_rate=22,
+                 ecu=False):
         self.labels_df = None
         self.path = path
         self.channel_map_path = channel_map_path
@@ -272,16 +259,16 @@ class LfpRecordingObject:
         self.pkl_path = None
 
         # inputs needed for notebook 2 (power)
-        self.LFP_TRACES_DF = None
+        self.lfp_trace_df = None
         self.original_trace_columns = None
 
-        # TODO: hard coding these variables for power
-        self.VOLTAGE_SCALING_VALUE = 0.195
-        self.zscore_threshold = 4
-        self.RESAMPLE_RATE = 1000
-        self.TIME_HALFBANDWIDTH_PRODUCT = 2
-        self.TIME_WINDOW_DURATION = 1
-        self.TIME_WINDOW_STEP = 0.5
+        self.voltage_scaling_value = voltage_scaling_value
+        self.zscore_threshold = zscore_threshold
+        self.resample_rate = resample_rate
+        self.time_half_bandwidth_prod = time_half_bandwidth_prod
+        self.time_window_duration = time_window_duration
+        self.time_window_step = time_window_step
+
         self.BAND_TO_FREQ = {"theta": (4, 12), "gamma": (30, 51)}
 
         # granger
@@ -1135,7 +1122,7 @@ def adjust_first_timestamps(trodes_metadata_df, output_dir, experiment_prefix):
     return trodes_metadata_df, trodes_state_df, trodes_video_df, trodes_final_df
 
 
-def load_channel_map(channel_map_path, SUBJECT_COL="Subject"):
+def load_channel_map(channel_map_path, subject_col="Subject"):
     """
     Loads the channel mapping and trodes metadata dataframe.
     Args:
@@ -1145,32 +1132,32 @@ def load_channel_map(channel_map_path, SUBJECT_COL="Subject"):
         CHANNEL_MAPPING_DF (pandas dataframe): A dataframe containing the channel mapping data.
     """
     # Load channel mapping
-    CHANNEL_MAPPING_DF = pd.read_excel(channel_map_path)
-    CHANNEL_MAPPING_DF = CHANNEL_MAPPING_DF.drop(
+    channel_map_df = pd.read_excel(channel_map_path)
+    channel_map_df = channel_map_df.drop(
         columns=[
-            col for col in CHANNEL_MAPPING_DF.columns if "eib" in col],
+            col for col in channel_map_df.columns if "eib" in col],
         errors="ignore")
-    for col in CHANNEL_MAPPING_DF.columns:
+    for col in channel_map_df.columns:
         if "spike_interface" in col:
-            CHANNEL_MAPPING_DF[col] = CHANNEL_MAPPING_DF[col].fillna(0)
-            CHANNEL_MAPPING_DF[col] = CHANNEL_MAPPING_DF[col].astype(
+            channel_map_df[col] = channel_map_df[col].fillna(0)
+            channel_map_df[col] = channel_map_df[col].astype(
                 int).astype(str)
-    CHANNEL_MAPPING_DF[SUBJECT_COL] = CHANNEL_MAPPING_DF[SUBJECT_COL].astype(
+    channel_map_df[subject_col] = channel_map_df[subject_col].astype(
         str)
 
-    return CHANNEL_MAPPING_DF
+    return channel_map_df
 
 
 def extract_lfp_traces(
-        ALL_SESSION_DIR,
+        all_session_dir,
         ECU_STREAM_ID,
         TRODES_STREAM_ID,
-        RECORDING_EXTENTION,
-        LFP_FREQ_MIN,
-        LFP_FREQ_MAX,
-        ELECTRIC_NOISE_FREQ,
-        LFP_SAMPLING_RATE,
-        EPHYS_SAMPLING_RATE):
+        recording_extention,
+        LFP_FREQ_MIN=0.5,
+        LFP_FREQ_MAX=300,
+        ELECTRIC_NOISE_FREQ=60,
+        LFP_SAMPLING_RATE=1000,
+        EPHYS_SAMPLING_RATE=20000):
     """
     Extracts the LFP traces from the SpikeGadgets recordings using the spikeextractors module.
     Args:
@@ -1187,10 +1174,10 @@ def extract_lfp_traces(
         recording_name_to_all_ch_lfp (dictionary): A dictionary containing the LFP traces for each recording.
     """
     recording_name_to_all_ch_lfp = {}
-    print("ALL SESSION DIR is " + ALL_SESSION_DIR)
-    for session_dir in glob.glob(ALL_SESSION_DIR):
+    print("ALL SESSION DIR is " + all_session_dir)
+    for session_dir in glob.glob(all_session_dir):
         for recording_path in glob.glob(
-                os.path.join(session_dir, RECORDING_EXTENTION)):
+                os.path.join(session_dir, recording_extention)):
             try:
                 recording_basename = os.path.splitext(
                     os.path.basename(recording_path))[0]
@@ -1216,44 +1203,46 @@ def extract_lfp_traces(
 
 
 def combine_lfp_traces_and_metadata(
-        SPIKEGADGETS_EXTRACTED_DF,
+        spikegadgets_extracted_df,
         recording_name_to_all_ch_lfp,
-        CHANNEL_MAPPING_DF,
+        channel_map_df,
         EPHYS_SAMPLING_RATE,
         LFP_SAMPLING_RATE,
-        LFP_RESAMPLE_RATIO=20,
-        ALL_CH_LFP_COL="all_ch_lfp",
-        SUBJECT_COL="Subject",
-        CURRENT_SUBJECT_COL="current_subject"):
+        all_ch_lfp_col="all_ch_lfp",
+        subject_col="Subject",
+        current_subject_col="current_subject",
+        LFP_RESAMPLE_RATIO=20):
     """
     Combines the LFP traces with the metadata in the SpikeGadgets dataframe.
     Args:
-        SPIKEGADGETS_EXTRACTED_DF (pandas dataframe): A dataframe containing the trodes metadata.
+        spikegadgets_extracted_df (pandas dataframe): A dataframe containing the trodes metadata.
         recording_name_to_all_ch_lfp (dictionary): A dictionary containing the LFP traces for each recording.
-        CHANNEL_MAPPING_DF (pandas dataframe): A dataframe containing the channel mapping data.
+        channel_map_df (pandas dataframe): A dataframe containing the channel mapping data.
         EPHYS_SAMPLING_RATE (int): The sampling rate for the ephys traces.
         LFP_SAMPLING_RATE (int): The sampling rate for the LFP traces.
+        all_ch_lfp_col (String): The column name for the LFP traces in the SpikeGadgets dataframe.
+            Defaults to "all_ch_lfp".
+        subject_col (String): Column name for the subject in the channel mapping dataframe. Defaults to "Subject".
+        current_subject_col (String): Column name for the current subject in the SpikeGadgets dataframe.
+            Defaults to "current_subject".
         LFP_RESAMPLE_RATIO (int): The ratio to resample the LFP traces.
-        ALL_CH_LFP_COL (String): The column name for the LFP traces in the SpikeGadgets dataframe.
-        SUBJECT_COL (String): Column name for the subject in the channel mapping dataframe.
-        CURRENT_SUBJECT_COL (String): Column name for the current subject in the SpikeGadgets dataframe.
     Returns:
-        SPIKEGADGETS_FINAL_DF (pandas dataframe): A dataframe containing the final data for each session.
+        spike_final_df (pandas dataframe): A dataframe containing the final data for each session.
     """
     print("recording name to all channel")
     print(recording_name_to_all_ch_lfp)
-    print(SPIKEGADGETS_EXTRACTED_DF.columns)
+    print(spikegadgets_extracted_df.columns)
     lfp_trace_condition = (
-        SPIKEGADGETS_EXTRACTED_DF["recording"].isin(recording_name_to_all_ch_lfp))
+        spikegadgets_extracted_df["recording"].isin(recording_name_to_all_ch_lfp))
     print(lfp_trace_condition)
 
-    SPIKEGADGETS_LFP_DF = SPIKEGADGETS_EXTRACTED_DF[lfp_trace_condition].copy(
+    spikegadgets_lfp_df = spikegadgets_extracted_df[lfp_trace_condition].copy(
     ).reset_index(drop=True)
     print("on line 494")
-    SPIKEGADGETS_LFP_DF["all_ch_lfp"] = SPIKEGADGETS_LFP_DF["recording"].map(
+    spikegadgets_lfp_df["all_ch_lfp"] = spikegadgets_lfp_df["recording"].map(
         recording_name_to_all_ch_lfp)
     print("on line 496")
-    SPIKEGADGETS_LFP_DF["LFP_timestamps"] = SPIKEGADGETS_LFP_DF.apply(
+    spikegadgets_lfp_df["LFP_timestamps"] = spikegadgets_lfp_df.apply(
         lambda row: np.arange(
             0,
             row["all_ch_lfp"].get_total_samples() *
@@ -1262,27 +1251,27 @@ def combine_lfp_traces_and_metadata(
             dtype=int),
         axis=1)
     print("on line 500")
-    SPIKEGADGETS_LFP_DF = pd.merge(
-        SPIKEGADGETS_LFP_DF,
-        CHANNEL_MAPPING_DF,
-        left_on=CURRENT_SUBJECT_COL,
-        right_on=SUBJECT_COL,
+    spikegadgets_lfp_df = pd.merge(
+        spikegadgets_lfp_df,
+        channel_map_df,
+        left_on=current_subject_col,
+        right_on=subject_col,
         how="left")
     print("on line 502")
-    SPIKEGADGETS_LFP_DF["all_channels"] = SPIKEGADGETS_LFP_DF["all_ch_lfp"].apply(
+    spikegadgets_lfp_df["all_channels"] = spikegadgets_lfp_df["all_ch_lfp"].apply(
         lambda x: x.get_channel_ids())
-    SPIKEGADGETS_LFP_DF["region_channels"] = SPIKEGADGETS_LFP_DF[["spike_interface_mPFC",
+    spikegadgets_lfp_df["region_channels"] = spikegadgets_lfp_df[["spike_interface_mPFC",
                                                                   "spike_interface_vHPC",
                                                                   "spike_interface_BLA",
                                                                   "spike_interface_LH",
                                                                   "spike_interface_MD"]].to_dict('records')
-    SPIKEGADGETS_LFP_DF["region_channels"] = SPIKEGADGETS_LFP_DF["region_channels"].apply(
+    spikegadgets_lfp_df["region_channels"] = spikegadgets_lfp_df["region_channels"].apply(
         lambda x: sorted(x.items(), key=lambda item: int(item[1])))
-    print(SPIKEGADGETS_LFP_DF["region_channels"].iloc[0])
+    print(spikegadgets_lfp_df["region_channels"].iloc[0])
     print("on line 506")
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
-    print(SPIKEGADGETS_LFP_DF.head())
-    print(SPIKEGADGETS_LFP_DF.columns)
+    print(spikegadgets_lfp_df.head())
+    print(spikegadgets_lfp_df.columns)
 
     def get_traces_with_progress(row):
         """
@@ -1297,24 +1286,24 @@ def combine_lfp_traces_and_metadata(
         logging.info(
             f"Processing {total_channels} channels for row {row.name}")
 
-        traces = row[ALL_CH_LFP_COL].get_traces(channel_ids=channel_ids)
+        traces = row[all_ch_lfp_col].get_traces(channel_ids=channel_ids)
         logging.info(f"Completed processing channels for row {row.name}")
 
         return traces.T
 
     # print number of rows in SPIKEGADGETS_LFP_DF
     print("num rows in spike df")
-    print(len(SPIKEGADGETS_LFP_DF))
+    print(len(spikegadgets_lfp_df))
     # Apply the modified function
-    SPIKEGADGETS_LFP_DF["all_region_lfp_trace"] = SPIKEGADGETS_LFP_DF.apply(
+    spikegadgets_lfp_df["all_region_lfp_trace"] = spikegadgets_lfp_df.apply(
         get_traces_with_progress, axis=1)
     print("on line 508")
-    SPIKEGADGETS_LFP_DF["per_region_lfp_trace"] = SPIKEGADGETS_LFP_DF.apply(lambda row: dict(zip(["{}_lfp_trace".format(
+    spikegadgets_lfp_df["per_region_lfp_trace"] = spikegadgets_lfp_df.apply(lambda row: dict(zip(["{}_lfp_trace".format(
         t[0].strip("spike_interface_")) for t in row["region_channels"]], row["all_region_lfp_trace"])), axis=1)
-    SPIKEGADGETS_FINAL_DF = pd.concat([SPIKEGADGETS_LFP_DF.copy(
-    ), SPIKEGADGETS_LFP_DF['per_region_lfp_trace'].apply(pd.Series).copy()], axis=1)
+    spike_final_df = pd.concat([spikegadgets_lfp_df.copy(
+    ), spikegadgets_lfp_df['per_region_lfp_trace'].apply(pd.Series).copy()], axis=1)
     print("on line 510")
-    SPIKEGADGETS_FINAL_DF = SPIKEGADGETS_FINAL_DF.drop(
+    spike_final_df = spike_final_df.drop(
         columns=[
             "all_channels",
             "all_region_lfp_trace",
@@ -1322,19 +1311,19 @@ def combine_lfp_traces_and_metadata(
             "region_channels",
             "all_ch_lfp"],
         errors="ignore")
-    SPIKEGADGETS_FINAL_DF = SPIKEGADGETS_FINAL_DF.drop(
+    spike_final_df = spike_final_df.drop(
         columns=[
-            col for col in SPIKEGADGETS_FINAL_DF.columns if "spike_interface" in col],
+            col for col in spike_final_df.columns if "spike_interface" in col],
         errors="ignore")
-    SPIKEGADGETS_FINAL_DF = SPIKEGADGETS_FINAL_DF.rename(
-        columns={col: col.lower() for col in SPIKEGADGETS_LFP_DF.columns})
-    sorted_columns = sorted(SPIKEGADGETS_FINAL_DF.columns,
+    spike_final_df = spike_final_df.rename(
+        columns={col: col.lower() for col in spikegadgets_lfp_df.columns})
+    sorted_columns = sorted(spike_final_df.columns,
                             key=lambda x: x.split("_")[-1])
-    SPIKEGADGETS_FINAL_DF = SPIKEGADGETS_FINAL_DF[sorted_columns].copy()
+    spike_final_df = spike_final_df[sorted_columns].copy()
 
     print("done combining lfp traces and metadata")
 
-    return SPIKEGADGETS_FINAL_DF
+    return spike_final_df
 
 
 ### START OF NOTEBOOK 2 ###
@@ -1343,7 +1332,9 @@ def combine_lfp_traces_and_metadata(
 def preprocess_lfp_data(lfp_traces_df, voltage_scaling_value,
                         zscore_threshold, resample_rate):
     """
-    Preprocesses the LFP traces in the input dataframe by calculating the modified z-score, root-mean-square, and filtering out outliers.
+    Preprocesses the LFP traces in the input dataframe by calculating the modified z-score, root-mean-square,
+    and filtering out outliers.
+    SPIKE_GADGETS_MULTIPLIER is a constant used to calculate the modified z-score.
     Args:
         lfp_traces_df (pandas dataframe): A dataframe containing the LFP traces.
         voltage_scaling_value (float): The scaling value for the LFP traces.
@@ -1352,7 +1343,6 @@ def preprocess_lfp_data(lfp_traces_df, voltage_scaling_value,
     Returns:
         lfp_traces_df (pandas dataframe): A dataframe containing the preprocessed LFP traces.
     """
-    #TODO will reformatting cause errors
     print("beginning preprocessing")
     original_trace_columns = [
         col for col in lfp_traces_df.columns if "trace" in col]
@@ -1371,7 +1361,6 @@ def preprocess_lfp_data(lfp_traces_df, voltage_scaling_value,
         brain_region = col.split("_")[0]
         updated_column = "{}_lfp_modified_zscore".format(brain_region)
         MAD_column = "{}_lfp_MAD".format(brain_region)
-        SPIKE_GADGETS_MULTIPLIER = 0.6745
         lfp_traces_df[updated_column] = lfp_traces_df.apply(
             lambda x: SPIKE_GADGETS_MULTIPLIER * (x[col] - np.median(x[col])) / x[MAD_column], axis=1)
 

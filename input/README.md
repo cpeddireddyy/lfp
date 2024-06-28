@@ -17,9 +17,9 @@
   - `video_name` - Name of the video.
   - `sleap_name` - Name of sleap *.h5 file.
   - `session_dir` - Directory of the session (containing *.rec)
-  - `tracked_subject` - (List) Name of the subject being tracked.
+  - `tracked_subject` - (List) Name of the subject being tracked. might need to be optional 
   - `current_subject` - Name of the subject in the video.
-  - `competition_closeness` - Competition closeness of the trial (see encoding dict)
+  - `competition_closeness` - Competition closeness of the trial (see encoding dict). this should be trial label
   - `notes` - (Optional) Trial notes.
 
 
