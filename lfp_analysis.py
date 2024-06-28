@@ -2317,8 +2317,12 @@ def make_labels_df(labels_df, filter_bands_df):
 
 
 def encode_labels(filter_bands_df, labels_df, encoding_dict):
-    # TODO: check, this function (based on 11_rce2_export) is identical to
-    # make_labels_df (based on 10_rce2_add_trial_labels)
+
+    filter_bands_df["video_name"] = filter_bands_df["video_name"].apply(
+        lambda x: x.strip(".videoTimeStamps.cameraHWSync"))
+    filter_bands_df["current_subject"] = filter_bands_df["current_subject"].astype(str)
+    labels_df["current_subject"] = labels_df["current_subject"].astype(str)
+
     filter_bands_df["competition_closeness"] = filter_bands_df["competition_closeness"].map(
         encoding_dict)
     filter_bands_df["tracked_subject"] = filter_bands_df["tracked_subject"].apply(
@@ -2381,63 +2385,8 @@ def encode_labels(filter_bands_df, labels_df, encoding_dict):
         trial_and_spectral_df[column] = trial_and_spectral_df.apply(
             lambda x: helper_filter_array_by_values(
                 x[column], x["start_stop_frame"][0], x["start_stop_frame"][1])[0], axis=1)
+
     trial_and_spectral_df["condition"] = trial_and_spectral_df.apply(
         lambda x: np.array(x["condition"])[x["tone_mask"]], axis=1)
-
-    trial_and_spectral_df["tracked_subject"] = trial_and_spectral_df["tracked_subject"].apply(
-        lambda x: x[0])
-    trial_and_spectral_df["box_number"] = trial_and_spectral_df["box_number"].apply(
-        lambda x: x[0])
-    trial_and_spectral_df["experiment"] = trial_and_spectral_df["experiment"].apply(
-        lambda x: x[0])
-
-    for col in sorted(sleap_columns):
-        updated_item_col = "baseline_{}".format(col)
-        print(updated_item_col)
-        updated_timestamp_col = "baseline_video_timestamps".format(col)
-        if "agent" in col:
-            trial_and_spectral_df[updated_item_col] = trial_and_spectral_df.apply(
-                lambda x: helper_filter_by_timestamp_range(
-                    start=x["baseline_start_timestamp"],
-                    stop=x["baseline_stop_timestamp"],
-                    timestamps=x["video_timestamps"],
-                    items=x[col])[1] if x["agent"] else np.nan,
-                axis=1)
-        else:
-            trial_and_spectral_df[updated_item_col] = trial_and_spectral_df.apply(
-                lambda x: helper_filter_by_timestamp_range(
-                    start=x["baseline_start_timestamp"],
-                    stop=x["baseline_stop_timestamp"],
-                    timestamps=x["video_timestamps"],
-                    items=x[col])[1],
-                axis=1)
-
-    trial_and_spectral_df[updated_timestamp_col] = trial_and_spectral_df.apply(
-        lambda x: helper_filter_by_timestamp_range(
-            start=x["baseline_start_timestamp"],
-            stop=x["baseline_stop_timestamp"],
-            timestamps=x["video_timestamps"],
-            items=x[col])[0],
-        axis=1)
-
-    aggregation_dict = {
-        col: "first" for col in trial_and_spectral_df if col not in [
-            'subject_locations',
-            "current_subject",
-            "session_dir"]}
-    aggregation_dict["subject_locations"] = list
-    trial_and_spectral_df = trial_and_spectral_df.groupby(
-        ["current_subject", "session_dir"]).agg(aggregation_dict).reset_index()
-
-    helper_combine_grouped_rows(trial_and_spectral_df, ["subject_locations"])
-
-    helper_overlay_arrays(trial_and_spectral_df["subject_locations"].iloc[0],
-                          trial_and_spectral_df["subject_locations"].iloc[1])
-
-    trial_and_spectral_df["baseline_start_timestamp"] = trial_and_spectral_df["tone_start_timestamp"] - 30 * 20000
-    trial_and_spectral_df["baseline_stop_timestamp"] = trial_and_spectral_df["tone_start_timestamp"] - 20 * 20000
-
-    trial_and_spectral_df["video_frame"] = trial_and_spectral_df["video_timestamps"].apply(
-        lambda x: np.array(list(range(len(x)))) + 1)
 
     return trial_and_spectral_df
