@@ -39,6 +39,64 @@ class LfpExperiment:
 
 class LfpRecordingObject:
     #TODO: Changed recording extention to merged.rec here, debug here if needed
+    """
+    class for each recording
+    __init__:
+        - path (str): path to recording
+        - channel_map_path (str): path to channel map
+        - sleap_path (str): path to sleap data
+        - events_path (str): path to events
+        - experiment_name (str): name of experiment
+        - subject (str): name/ id of subject
+        - output_path (str): path to save output
+        - encoding_dict (dict str: str): dictionary of encoding
+        - time_window_step (int): time window step
+        - time_window_duration (int): time window duration
+        - time_half_bandwidth_prod (int): time half bandwidth product
+        - zscore_threshold=4 (int): zscore threshold, default 4
+        - voltage_scaling_value=0.195 (float): voltage scaling value, default 0.195
+        - resample_rate=1000 (int): resample rate, default 1000
+        - sampling_rate=20000 (int): sampling rate, default 20000
+        - frame_rate=22 (int): frame rate, default 22
+        - ecu=False (bool): ecu, default False
+
+    make_output_dir:
+        Verifies or creates the output directory exists
+
+    make_object:
+        Creates the LFP object and saves the metadata, state_df, video_df, final_df
+
+    make_spike_df:
+        Calls combine_lfp_traces_and_metadata and saves the spike_df
+
+    make_power_df:
+        Calls preprocess_lfp_data and calculate_power and saves the power_df
+
+    make_phase_df:
+        Calls calculate_phase and saves the phase_df
+
+    make_coherence_df:
+        Calls calculate_coherence and saves the coherence_df
+
+    make_granger_df:
+        Calls calculate_granger_causality and saves the granger_df
+
+    make_filter_bands_df:
+        Calls calculate_filter_bands and saves the filter_bands_df
+
+    make_sleap_df:
+        Calls process_sleap_data and saves the sleap_df and start_stop_df
+
+    analyze_sleap:
+        Calls analyze_sleap_file, produces plots and saves them based on user input
+
+    add_labels:
+        Combines labels with the LFP object and saves the labels_and_spectral
+
+    add_label_encoding:
+        Adds trial label encoding to the LFP object and saves the label_encoding
+    """
+
     def make_object(self):
         self.recording_names_dict = extract_lfp_traces(
             all_session_dir=self.path,
@@ -1127,9 +1185,9 @@ def load_channel_map(channel_map_path, subject_col="Subject"):
     Loads the channel mapping and trodes metadata dataframe.
     Args:
         channel_map_path (String): Path to the channel mapping excel file.
-        SUBJECT_COL (String): Column name for the subject in the channel mapping dataframe.
+        subject_col (String): Column name for the subject in the channel mapping dataframe.
     Returns:
-        CHANNEL_MAPPING_DF (pandas dataframe): A dataframe containing the channel mapping data.
+        channel_map_df (pandas dataframe): A dataframe containing the channel mapping data.
     """
     # Load channel mapping
     channel_map_df = pd.read_excel(channel_map_path)
@@ -1161,10 +1219,10 @@ def extract_lfp_traces(
     """
     Extracts the LFP traces from the SpikeGadgets recordings using the spikeextractors module.
     Args:
-        ALL_SESSION_DIR (String): Path to the directory containing the session directories.
+        all_session_dir (String): Path to the directory containing the session directories.
         ECU_STREAM_ID (String): The stream ID for the ECU data.
         TRODES_STREAM_ID (String): The stream ID for the trodes data.
-        RECORDING_EXTENTION (String): The file extension for the recordings.
+        recording_extention (String): The file extension for the recordings.
         LFP_FREQ_MIN (float): The minimum frequency for the LFP bandpass filter.
         LFP_FREQ_MAX (float): The maximum frequency for the LFP bandpass filter.
         ELECTRIC_NOISE_FREQ (float): The frequency of the electric noise.
@@ -2205,6 +2263,10 @@ def analyze_sleap_file(
 def filter_good_units(recording_to_cluster_info):
     """
     Filter good units from cluster information.
+    Args:
+        recording_to_cluster_info (dict): A dictionary containing the cluster information.
+    Returns:
+        recording_to_good_unit_ids (dict): A dictionary containing the good unit IDs.
     """
     print(recording_to_cluster_info)
     recording_to_cluster_info_df = pd.concat(
@@ -2221,6 +2283,14 @@ def filter_good_units(recording_to_cluster_info):
 
 
 def make_labels_df(labels_df, filter_bands_df):
+    """
+    Make labels dataframe.
+    Args:
+        labels_df (pandas dataframe): A dataframe containing the labels data.
+        filter_bands_df (pandas dataframe): A dataframe containing the filter bands data.
+    Returns:
+        labels_df (pandas dataframe): A dataframe containing the trial labels data.
+    """
     # TODO: this function can be optimized, for loops
 
     filter_bands_df["video_name"] = filter_bands_df["video_name"].apply(
@@ -2289,6 +2359,15 @@ def make_labels_df(labels_df, filter_bands_df):
 
 
 def encode_labels(filter_bands_df, labels_df, encoding_dict):
+    """
+    Encode labels using the user provided encoding dictionary.
+    Args:
+        filter_bands_df (pandas dataframe): A dataframe containing the filter bands data.
+        labels_df (pandas dataframe): A dataframe containing the labels data.
+        encoding_dict (dict): A dictionary containing the encoding information.
+    Returns:
+        trial_and_spectral_df (pandas dataframe): A dataframe containing the trial and spectral data.
+    """
 
     filter_bands_df["video_name"] = filter_bands_df["video_name"].apply(
         lambda x: x.strip(".videoTimeStamps.cameraHWSync"))
