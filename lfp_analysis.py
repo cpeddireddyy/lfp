@@ -100,7 +100,6 @@ class LfpRecordingObject:
     def make_object(self):
         self.recording_names_dict = extract_lfp_traces(
             all_session_dir=self.path,
-            ecu=False,
             ECU_STREAM_ID="ECU",
             TRODES_STREAM_ID="trodes",
             recording_extention="*merged.rec")
@@ -115,7 +114,7 @@ class LfpRecordingObject:
             session_to_trodes=session_to_trodes_temp, session_to_path=paths)
         # call adjust_first_timestamps
         self.metadata, self.state_df, self.video_df, self.final_df = adjust_first_timestamps(
-            trodes_metadata_df=metadata, ecu=self.ecu)
+            trodes_metadata_df=metadata, output_dir=self.path, experiment_prefix=self.experiment_name)
 
         print(self.output_path)
 
@@ -275,6 +274,7 @@ class LfpRecordingObject:
         self.label_encoding.to_pickle(
             self.output_path + "/label_encoding.pkl")
 
+    #TODO updated ecu params for meta data
     def __init__(self,
                  path,
                  channel_map_path,
@@ -326,9 +326,7 @@ class LfpRecordingObject:
         self.time_half_bandwidth_prod = time_half_bandwidth_prod
         self.time_window_duration = time_window_duration
         self.time_window_step = time_window_step
-        self.ecu = ecu
 
-        # this can be overwritten
         self.BAND_TO_FREQ = {"theta": (4, 12), "gamma": (30, 51)}
 
         # granger
@@ -1039,17 +1037,11 @@ def make_final_df(trodes_raw_df, trodes_state_df, trodes_video_df):
     Returns:
         trodes_final_df (pandas dataframe): A dataframe containing the final data for each session.
     """
-    #check if either is empty
-    if trodes_state_df is not None:
-        trodes_final_df = pd.merge(
-            trodes_raw_df,
-            trodes_state_df,
-            on=["session_dir"],
-            how="inner")
-    else:
-        #ecu=false
-        trodes_final_df = trodes_raw_df
-
+    trodes_final_df = pd.merge(
+        trodes_raw_df,
+        trodes_state_df,
+        on=["session_dir"],
+        how="inner")
     trodes_final_df = trodes_final_df.rename(
         columns={"first_item_data": "raw_timestamps"})
     trodes_final_df = trodes_final_df.drop(
@@ -1137,7 +1129,7 @@ def merge_state_video_df(trodes_state_df, trodes_video_df):
     return trodes_state_df
 
 
-def adjust_first_timestamps(trodes_metadata_df, ecu):
+def adjust_first_timestamps(trodes_metadata_df, output_dir, experiment_prefix):
     """
     The function will adjust the first timestamps for each session and create a final dataframe containing the
     metadata for each session.
@@ -1174,16 +1166,13 @@ def adjust_first_timestamps(trodes_metadata_df, ecu):
         recording_to_first_timestamp)
     print(trodes_metadata_df["first_timestamp"])
 
-    trodes_state_df = None
-    if ecu:
-        trodes_state_df = get_trodes_state_df(trodes_metadata_df)
+    trodes_state_df = get_trodes_state_df(trodes_metadata_df)
 
     trodes_video_df = get_trodes_video_df(trodes_metadata_df)
 
     trodes_raw_df = get_trodes_raw_df(trodes_metadata_df)
 
-    if ecu:
-        trodes_state_df = merge_state_video_df(trodes_state_df, trodes_video_df)
+    trodes_state_df = merge_state_video_df(trodes_state_df, trodes_video_df)
 
     trodes_final_df = make_final_df(
         trodes_raw_df, trodes_state_df, trodes_video_df)
@@ -1222,7 +1211,6 @@ def extract_lfp_traces(
         ECU_STREAM_ID,
         TRODES_STREAM_ID,
         recording_extention,
-        ecu,
         LFP_FREQ_MIN=0.5,
         LFP_FREQ_MAX=300,
         ELECTRIC_NOISE_FREQ=60,
@@ -1235,7 +1223,6 @@ def extract_lfp_traces(
         ECU_STREAM_ID (String): The stream ID for the ECU data.
         TRODES_STREAM_ID (String): The stream ID for the trodes data.
         recording_extention (String): The file extension for the recordings.
-        ecu (bool): Whether the recording is from the ECU or trodes.
         LFP_FREQ_MIN (float): The minimum frequency for the LFP bandpass filter.
         LFP_FREQ_MAX (float): The maximum frequency for the LFP bandpass filter.
         ELECTRIC_NOISE_FREQ (float): The frequency of the electric noise.
@@ -1252,12 +1239,10 @@ def extract_lfp_traces(
             try:
                 recording_basename = os.path.splitext(
                     os.path.basename(recording_path))[0]
-                if ecu:
-                    current_recording = se.read_spikegadgets(
-                        recording_path, stream_id=ECU_STREAM_ID)
-                else:
-                    current_recording = se.read_spikegadgets(
-                        recording_path, stream_id=TRODES_STREAM_ID)
+                current_recording = se.read_spikegadgets(
+                    recording_path, stream_id=ECU_STREAM_ID)
+                current_recording = se.read_spikegadgets(
+                    recording_path, stream_id=TRODES_STREAM_ID)
                 print(recording_basename)
 
                 # Preprocessing the LFP
@@ -1685,7 +1670,6 @@ def calculate_granger_causality(
         lfp_traces_df (pandas dataframe): A dataframe containing the LFP traces with the Granger causality calculated.
     """
     print("calculating granger causality")
-    #TODO these are the correct inputs for the function
     input_columns = [
         col for col in lfp_traces_df.columns if "trace" in col or "RMS" in col]
     all_suffixes = set(["_".join(col.split("_")[1:]) for col in input_columns])
